@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import {PanelRenderer,ModelCache} from './render_runtime.js';
 import {OrbitControls} from './vendor/OrbitControls.js';
-const $=id=>document.getElementById(id),panels=[],cache=new Map();
+const $=id=>document.getElementById(id),panels=[],cache=new ModelCache();
 window.addEventListener('error',e=>{$('fatal').textContent=e.message});window.addEventListener('unhandledrejection',e=>{$('fatal').textContent=String(e.reason)});
 const response=await fetch('./shoulder_manifest.json',{cache:'no-store'});if(!response.ok)throw Error('无法读取纠正结果');const data=await response.json();
 const baselineName=data.baseline_name||'上一版 R6';
@@ -13,7 +14,7 @@ const query=new URLSearchParams(location.search);if(Object.hasOwn(dirs,query.get
 function draw(p){p.renderer.render(p.scene,p.camera)}
 function panel(id){
  const host=$(id),scene=new THREE.Scene();scene.background=new THREE.Color('#19222d');const camera=new THREE.PerspectiveCamera(36,1,.03,1000);camera.up.set(0,0,1);camera.position.set(0,-35,5);
- const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;host.appendChild(renderer.domElement);
+ const renderer=new PanelRenderer();renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;host.appendChild(renderer.domElement);
  const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=false;controls.minDistance=.1;controls.maxDistance=300;const group=new THREE.Group(),guides=new THREE.Group();scene.add(group,guides,new THREE.AmbientLight(0xffffff,1.5));
  const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(2,2,4);camera.add(light);scene.add(camera);const p={host,scene,camera,renderer,controls,group,guides};panels.push(p);
  new ResizeObserver(()=>{renderer.setSize(host.clientWidth,host.clientHeight,false);camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();draw(p)}).observe(host);
@@ -85,7 +86,7 @@ function section(){
  for(const [key,color,width] of [['original','#788697',1.3],['before','#f3ba65',3.8],['after','#54e0dc',1.8],['shoulder','#ff5548',3],['removed','#ffa326',3.4]]){ctx.save();ctx.beginPath();ctx.rect(ox,oy,(xmax-xmin)*scale,(ymax-ymin)*scale);ctx.clip();ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();for(const line of s.layers[key]){ctx.moveTo(...xy(line[0]));ctx.lineTo(...xy(line[1]))}ctx.stroke();ctx.restore()}
  ctx.fillStyle='#aebed0';ctx.fillText('mm',w-30,h-10);
 }
-const jsonCache=new Map();async function jsonFile(url){if(!jsonCache.has(url))jsonCache.set(url,fetch(url).then(r=>{if(!r.ok)throw Error('无法读取 '+url);return r.json()}));return jsonCache.get(url)}
+const jsonCache=new ModelCache(4);async function jsonFile(url){if(!jsonCache.has(url))jsonCache.set(url,fetch(url).then(r=>{if(!r.ok)throw Error('无法读取 '+url);return r.json()}));return jsonCache.get(url)}
 async function render(doFit=false){
  const ticket=++serial,c=C();$('status').textContent='加载模型与剖线…';const keys=['original','before','after'];if(c.models.removed)keys.push('removed');
  const results=await Promise.all([...keys.map(k=>read(c.models[k])),jsonFile(c.sections_url),jsonFile(c.boundaries_url)]);if(ticket!==serial)return;

@@ -18,4 +18,4 @@
 <div class="metrics" id="metrics"></div><ul class="notes" id="notes"></ul>
 <details open><summary>全部病例的阶段检查</summary><table><thead><tr><th>病例</th><th>局部配准</th><th>留出 P95 / mm</th><th>比较目标被提取遗漏 / 顶点</th><th>提取在比较目标外 / 顶点</th><th>开放边界：比较目标 / 提取 / 分区</th></tr></thead><tbody id="summary"></tbody></table><p class="muted">差异计数只说明两个阶段保留的几何不同，不把颜色分牙当作人工真值。P95 是稳定锚点留出残差，不是备牙表面的距离；备牙前后目标形状本来就会改变。</p></details>
 <details><summary>输入、配准和提取依据</summary><p id="provenance"></p><p><a id="audit" target="_blank">本例逐阶段核对记录</a> · <a href="registration_manifest.json" target="_blank">全部审阅数据</a> · <a id="batch-report" target="_blank">排查报告</a></p><p class="muted">配准矩阵按 POST → PRE 使用；提取和分区模型直接读取实际流水线产物。单牙提取依据本次流水线保存的目标身份与提取规则；可分别检查参考定位、配准和颜色标签，具体来源见逐阶段核对记录。各例是否自动选牙、变换来源和质量状态见上方记录。</p></details>
-<pre id="fatal"></pre></main></div><footer>交互审阅快照。局部配准失败或低置信会如实显示；本页不替代人工边界标注，也不将开口数换算成准确率。</footer><script type="module" src="./registration.js?v=registration-r7"></script></body></html>
+<pre id="fatal"></pre></main></div><footer>交互审阅快照。局部配准失败或低置信会如实显示；本页不替代人工边界标注，也不将开口数换算成准确率。</footer><script type="module" src="./registration.js?v=webgl-recovery-1"></script></body></html>

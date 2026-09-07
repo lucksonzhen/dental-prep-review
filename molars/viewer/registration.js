@@ -1,11 +1,12 @@
 import * as THREE from 'three';
+import {PanelRenderer,ModelCache} from './render_runtime.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 const $=id=>document.getElementById(id);
 window.addEventListener('error',e=>{$('fatal').textContent=e.message});
 window.addEventListener('unhandledrejection',e=>{$('fatal').textContent=String(e.reason)});
 const response=await fetch('./registration_manifest.json',{cache:'no-store'});
 if(!response.ok)throw Error('无法加载逐阶段审阅数据');
-const data=await response.json(),cache=new Map(),panels=[];
+const data=await response.json(),cache=new ModelCache(),panels=[];
 $('batch-report').href=data.report_url||'../registration_review_r7/report.md';
 if(data.legacy_color_available===false){$('color-source').value='post';$('color-source').querySelector('[value="post_legacy"]').hidden=true;}
 const params=new URLSearchParams(location.search);
@@ -20,7 +21,7 @@ function draw(p){p.renderer.render(p.scene,p.camera)}
 function panel(id){
  const host=$(id),scene=new THREE.Scene();scene.background=new THREE.Color('#19222d');
  const camera=new THREE.PerspectiveCamera(36,1,.03,2000);camera.up.set(0,0,1);camera.position.set(0,-35,5);
- const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.localClippingEnabled=true;host.appendChild(renderer.domElement);
+ const renderer=new PanelRenderer();renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.localClippingEnabled=true;host.appendChild(renderer.domElement);
  const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=false;controls.minDistance=.1;controls.maxDistance=1000;
  const group=new THREE.Group();scene.add(group);scene.add(new THREE.AmbientLight(0xffffff,1.5));
  const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(2,2,4);camera.add(light);scene.add(camera);
