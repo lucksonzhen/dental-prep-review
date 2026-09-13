@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>颈缘细化 · 最终分割对照</title>
+  <style>
+    :root{color-scheme:dark;--bg:#10171f;--panel:#19222d;--line:#354557;--text:#e8eef5;--muted:#adbed0;--accent:#96ccff}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 'Microsoft YaHei',system-ui,sans-serif;overflow-wrap:anywhere}
+    header{padding:18px 24px;border-bottom:1px solid var(--line)}h1{font-size:24px;margin:0}h2{font-size:21px;margin:0}h3{font-size:15px;margin:15px 0 8px}p{margin:6px 0}a{color:var(--accent)}
+    button,select,input{font:inherit}button,select{padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:#203044;color:var(--text);cursor:pointer;max-width:100%}button:hover:enabled{background:#34516e}button[aria-pressed=true]{background:#365f86;border-color:var(--accent)}button:disabled,select:disabled{opacity:.55;cursor:default}button:focus-visible,select:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #f3bd45;outline-offset:3px}
+    .muted{color:var(--muted);font-size:12px}.layout{display:grid;grid-template-columns:215px minmax(0,1fr)}aside{min-width:0;border-right:1px solid var(--line);padding:18px 12px;position:sticky;top:12px;align-self:start;max-height:calc(100dvh - var(--review-header-height,160px) - 16px);overflow-y:auto;overscroll-behavior:contain}main{min-width:0;padding:18px 22px}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:10px 0}.row label{display:flex;gap:6px;align-items:center}.filters{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0}.filters button{padding:5px 9px}.case{display:block;width:100%;text-align:left;margin:7px 0}.case span,.case small{display:block}.case small{font-size:11px;color:var(--muted)}.case small.unavailable{color:#ffbf90}
+    .panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.viewport{height:490px;position:relative;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;touch-action:none}.viewport canvas{display:block;width:100%;height:100%}.label{position:absolute;top:12px;left:14px;right:12px;z-index:2;pointer-events:none;color:#f0f6ff;text-shadow:0 1px 5px #000}.label small{display:block;color:#c2cfde;font-size:11px}.empty{position:absolute;inset:55px 20px 20px;display:flex;align-items:center;justify-content:center;text-align:center;color:#d0dbea;pointer-events:none}.legend{display:flex;flex-wrap:wrap;gap:8px 17px;margin:12px 0;font-size:12px}.legend span{display:inline-flex;align-items:center;gap:6px}.swatch{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid #ffffff44}.callout{background:#1b2a39;border-left:3px solid var(--accent);padding:10px 13px;margin:12px 0}.duplicates{color:#f4cc82}.downloads{display:flex;gap:8px 20px;flex-wrap:wrap}.downloads a{font-size:12px}details{margin:16px 0}summary{cursor:pointer;color:var(--accent)}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 Consolas,monospace;max-height:380px;overflow:auto;padding:12px;background:#15202b;border:1px solid var(--line);border-radius:6px}ul{padding-left:20px}li{margin:5px 0}#fatal{color:#ffb8aa}#mode-note{min-height:24px}#status{font-size:12px;color:var(--muted)}[hidden]{display:none!important}
+    @media(min-width:1600px){.viewport{height:570px}}@media(max-width:1000px){.layout{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line);position:static;max-height:none;overflow-y:visible;overscroll-behavior:auto}#cases{display:flex;gap:7px;flex-wrap:wrap}.case{width:auto;max-width:100%;margin:0}.viewport{height:400px}}@media(max-width:650px){header{padding:15px}h1{font-size:21px}main{padding:14px}.panels{grid-template-columns:minmax(0,1fr)}.viewport{height:350px}.row{gap:7px}.row label{font-size:12px}.case{flex:1 1 145px}.filters button{flex:1}select{min-width:0}#views button{padding:6px 9px}}
+    .hole-item{padding:9px 10px;margin:8px 0;border:1px solid var(--line);border-radius:6px}.hole-item label{display:flex;gap:8px;align-items:flex-start}.hole-item small{display:block;color:var(--muted)}.hole-kind-restored{color:#00f1ff}.hole-kind-synthetic{color:#ff39dd}
+    .status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:8px 20px;margin:8px 0}.status-grid>div{min-width:0;padding:7px 10px;background:var(--panel);border:1px solid var(--line);border-radius:5px}.status-grid dt{font-size:12px;color:var(--muted)}.status-grid dd{margin:1px 0 0}.status-grid dd[data-state=unavailable]{color:var(--muted)}
+  </style>
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+</head>
+<body>
+  <header><h1 id="review-title">颈缘细化 · 最终分割对照</h1><p id="comparison-subtitle">最终结果对照 · 切牙与磨牙逐例查看</p><p id="summary" class="muted">正在读取样本清单…</p><p id="review-note" class="muted" hidden></p><a id="report-link" hidden target="_blank" rel="noopener">查看回归报告</a> <a id="visual-review-link" hidden>查看逐例视觉观察</a> <a id="methodology-link" hidden>方法与限制</a></header>
+  <div class="layout">
+    <aside aria-label="样本列表">
+      <strong>选择样本</strong>
+      <div id="filters" class="filters" aria-label="牙位筛选"><button data-fdi="all" aria-pressed="true">全部</button><button data-fdi="11" aria-pressed="false">11 切牙</button><button data-fdi="46" aria-pressed="false">46 磨牙</button></div>
+      <p id="case-count" class="muted"></p><div id="cases"></div>
+      <details id="excluded-details" hidden><summary>未纳入本轮对照 <span id="excluded-count"></span></summary><ul id="excluded"></ul></details>
+    </aside>
+    <main>
+      <h2 id="title">正在载入…</h2><p id="case-meta" class="muted"></p><p id="duplicates" class="duplicates" hidden></p>
+      <div class="row">
+        <label>显示 <select id="display-mode"><option value="segmentation">最终牙面 + 肩台</option><option value="grey">最终灰色牙体</option><option value="shoulder">最终肩台高亮</option><option value="color">颈缘阶段原色</option><option value="candidate">颈缘试验候选</option><option value="repair">孔洞诊断与修补预览</option></select></label>
+        <label><input type="checkbox" id="removed" disabled><span id="removed-label">叠加颈缘实际删除片</span></label>
+        <label><input type="checkbox" id="wire">网格线</label>
+      </div>
+      <p id="mode-note" class="muted"></p>
+      <section id="auto-hole-controls" hidden aria-label="自动补面">
+        <div class="row"><label><input type="checkbox" id="auto-hole-highlight">高亮估计补面来源</label><button id="auto-hole-focus" disabled>定位补面</button><a id="auto-hole-registration" hidden>查看已有配准</a></div>
+        <p id="auto-hole-status" class="callout" role="status"></p>
+        <p id="auto-hole-label-note" class="muted">右侧默认是自动处理后的完整模型；标签分类与拟合来源分别记录，来源高亮仅改变显示颜色。</p>
+        <details><summary>自动补面记录与来源</summary><pre id="auto-hole-report"></pre><div id="auto-hole-downloads" class="downloads"></div></details>
+      </section>
+      <p id="platform-policy" class="callout" role="status"></p>
+      <p id="repair-diagnostic" class="callout" role="status" hidden></p>
+      <div id="reconstruction-controls" hidden><div class="row"><label><input type="checkbox" id="reconstruction" disabled>预览人工重建副本</label></div><p id="reconstruction-note" class="muted" role="status"></p><div id="reconstruction-downloads" class="downloads"></div></div>
+      <div class="panels">
+        <div id="left" class="viewport" aria-label="左侧三维对照"><div class="label"><span id="left-label">旧最终分割</span><small id="left-detail"></small></div><div id="left-empty" class="empty">等待模型</div></div>
+        <div id="right" class="viewport" aria-label="右侧三维对照"><div class="label"><span id="right-label">新最终分割</span><small id="right-detail"></small></div><div id="right-empty" class="empty">等待模型</div></div>
+      </div>
+      <div id="views" class="row" aria-label="查看方向"><button data-view="front">正面</button><button data-view="back">背面</button><button data-view="sideA">侧面 A</button><button data-view="sideB">侧面 B</button><button data-view="top">冠顶</button><button data-view="bottom">颈缘</button><button id="fit">适合窗口</button><span id="status" role="status" aria-live="polite"></span></div>
+      <p class="muted">拖动旋转 · 滚轮缩放 · 右键平移；左右相机同步，使用相同坐标系。颈缘开放口需结合多个方向判断。</p>
+      <div id="legend" class="legend" aria-label="颜色图例"></div>
+      <section id="change-summary" aria-label="阶段状态与最终对照">
+        <h3>本轮颈缘阶段</h3><dl id="stage-status" class="status-grid"></dl>
+        <p class="muted">删除、标签修改、无损细分分别记录，相对于同次运行的颈缘输入。细分会改变顶点和三角面数组，不等于裁除牙体。</p>
+        <details id="final-comparison-details" hidden><summary id="final-comparison-title">与基线的最终结果比较</summary><dl id="final-comparison" class="status-grid"></dl><p class="muted">最终比较独立于候选采用状态。几何或索引不对应时，标签比较显示不可用。</p></details>
+      </section>
+      <details id="attempt-details" hidden><summary>候选尝试与回退记录</summary><dl id="attempt-status" class="status-grid"></dl><pre id="attempt-report"></pre><div id="attempt-downloads"></div></details>
+      <details id="hole-details"><summary>孔洞与独立修补预览</summary><p id="hole-status" role="status">本例未提供孔洞检测清单。</p><p class="muted">真实原扫描恢复片与估计补片单独标识；主颈部开放口保留。预览和下载为独立衍生，不回写正式结果，也不作为肩台证据。</p><div id="hole-list"></div><div class="row"><button id="hole-undo" disabled>撤销上次选择</button><button id="hole-clear" disabled>全部撤销</button><button id="hole-download" disabled>下载所选修补版与记录</button></div><p id="hole-selection-note" class="muted"></p><details><summary>修补来源与原始记录</summary><div id="hole-downloads" class="downloads"></div><pre id="hole-report">未提供</pre></details></details>
+      <p id="removed-note" class="muted"></p>
+      <ul id="notes"></ul>
+      <details id="platform-report-details"><summary>颈缘处理原始记录</summary><p class="muted">诊断数组绑定颈缘输入原色网格，可下载核查；此页不将光照法向显示为算法诊断。</p><pre id="platform-report"></pre></details>
+      <h3>下载本例真实产物</h3><div id="downloads" class="downloads"></div>
+      <p id="fatal" role="alert" hidden></p>
+    </main>
+  </div>
+  <script type="module" src="./neck-refinement.js"></script>
+</body>
+</html>

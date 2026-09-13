@@ -1,1 +1,37 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><title>牙齿分割 · 交互审阅</title><style>body{margin:0;background:#10151c;color:#e5ecf4;font:16px/1.65 system-ui,'Microsoft YaHei',sans-serif}main{max-width:1080px;margin:auto;padding:32px 24px}a{color:#92c8ff}nav,.links{display:flex;gap:16px;flex-wrap:wrap}section{background:#19222d;padding:22px;border-radius:12px;margin:22px 0}select{font:inherit;padding:8px;background:#263444;color:inherit;border:1px solid #53657a;border-radius:6px}h1,h2{line-height:1.3}.muted{color:#adbdcf}.notice{border-left:3px solid #e4a455;padding-left:16px}table{border-collapse:collapse;width:100%;font-size:14px}td,th{border:1px solid #405164;padding:8px;text-align:left;vertical-align:top}.table{overflow:auto}pre{white-space:pre-wrap;overflow-wrap:anywhere}footer{margin:32px 0;color:#adbdcf}</style></head><body><main><h1>牙齿分割 · 交互审阅</h1><p>按牙型选择批次，查看备牙前后配准、单牙提取、牙面分区与肩台对照。</p><section><h2>磨牙</h2><p>6 例 · 保留该批次已审阅版本</p><p class="links"><a href="molars/index.html#additional_46_0">打开交互审阅</a><a href="molars/report.html">逐例说明</a></p></section><section><h2>切牙</h2><p>9 例 · 保留该批次已审阅版本</p><p class="links"><a href="incisors/index.html#additional_11_0">打开交互审阅</a><a href="incisors/report.html">逐例说明</a></p></section><footer>这是已审阅结果的静态分享。保留各批次的配准质量与问题说明，不将连续区域或闭环等同于解剖准确。</footer></main></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>牙面与肩台分割 · 交互审阅</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#10151c;color:#e5ecf4;font:16px/1.7 system-ui,"Microsoft YaHei",sans-serif}main{max-width:1050px;margin:auto;padding:40px 24px}h1,h2,h3{line-height:1.35}h1{font-size:30px;margin-bottom:12px}h2{font-size:23px}h3{font-size:19px}a{color:#92c8ff}section{background:#19222d;padding:26px;border:1px solid #344453;border-radius:12px;margin:28px 0}.latest{border-top:4px solid #63b4fa}.eyebrow{color:#a6c7e7;font-size:14px}.muted,footer{color:#adbdcf}.links{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}.button{display:inline-block;padding:10px 18px;border:1px solid #668daf;border-radius:7px;text-decoration:none;background:#254967;color:#fff}.button.secondary{background:#203040}.history{display:grid;grid-template-columns:1fr 1fr;gap:22px}.history p{margin:8px 0}footer{font-size:14px;margin-top:28px}a:focus-visible{outline:3px solid #f3bd45;outline-offset:4px}@media(max-width:640px){main{padding:24px 16px}h1{font-size:26px}section{padding:20px}.history{grid-template-columns:1fr}.links .button{flex:1;text-align:center;white-space:nowrap}}
+  </style>
+</head>
+<body><main>
+  <h1>牙面与肩台分割 · 交互审阅</h1>
+  <p class="muted">直接在浏览器中旋转、缩放和对比三维结果，无需登录。</p>
+  <section class="latest">
+    <div class="eyebrow">最新结果 · v12 · 2026-09-13</div>
+    <h2>切牙、磨牙与自动补面</h2>
+    <p>28 条结果记录：切牙 14 条、磨牙 14 条，来自 20 组独立扫描。</p>
+    <p>查看牙面分区、四色肩台和补面前后对照。补面沿已有牙面边界确定标签，拟合来源可单独高亮，也可下载本例模型。</p>
+    <nav class="links" aria-label="最新结果">
+      <a class="button" href="latest/index.html">查看全部结果</a>
+      <a class="button secondary" href="latest/viewer/neck-refinement.html?mode=segmentation&amp;view=front#additional_11_0">查看切牙</a>
+      <a class="button secondary" href="latest/viewer/neck-refinement.html?mode=segmentation&amp;view=front#dentist_46_8">查看磨牙</a>
+      <a class="button secondary" href="latest/viewer/neck-refinement.html?mode=segmentation&amp;view=sideA&amp;focus=repair#dentist_46_8">查看补面与标签</a>
+    </nav>
+  </section>
+  <section>
+    <h2>历史审阅快照</h2>
+    <p class="muted">保留此前的配准、单牙提取和分割结果，便于回看。以下入口属于历史版本。</p>
+    <div class="history">
+      <div><h3>切牙 · 9 例</h3><p>8920 连续条带环版本</p><p><a href="incisors/index.html#additional_11_0">打开历史切牙结果</a> · <a href="incisors/report.html">逐例说明</a></p></div>
+      <div><h3>磨牙 · 6 例</h3><p>8928 颈缘恢复版本</p><p><a href="molars/index.html#additional_46_0">打开历史磨牙结果</a> · <a href="molars/report.html">逐例说明</a></p></div>
+    </div>
+  </section>
+  <footer>页面使用已计算完成的真实输出。拟合补面与原扫描来源分别标记，各版本的质量状态和问题说明保留。三维交互需要支持 WebGL 的浏览器。</footer>
+</main></body>
+</html>
