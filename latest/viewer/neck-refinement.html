@@ -37,6 +37,7 @@
       <p id="mode-note" class="muted"></p>
       <section id="auto-hole-controls" hidden aria-label="自动补面">
         <div class="row"><label><input type="checkbox" id="auto-hole-highlight">高亮估计补面来源</label><button id="auto-hole-focus" disabled>定位补面</button><a id="auto-hole-registration" hidden>查看已有配准</a></div>
+        <div id="postprocess-highlight-controls" class="row" hidden><label><input type="checkbox" id="postprocess-highlight">高亮本轮改标区域（亮紫色）</label><span class="muted">表示标签变化，不表示删除牙体；与橙色补面来源分开查看。</span></div>
         <p id="auto-hole-status" class="callout" role="status"></p>
         <p id="auto-hole-label-note" class="muted">右侧默认是自动处理后的完整模型；标签分类与拟合来源分别记录，来源高亮仅改变显示颜色。</p>
         <details><summary>自动补面记录与来源</summary><pre id="auto-hole-report"></pre><div id="auto-hole-downloads" class="downloads"></div></details>
@@ -65,6 +66,6 @@
       <p id="fatal" role="alert" hidden></p>
     </main>
   </div>
-  <script type="module" src="./neck-refinement.js"></script>
+  <script type="module" src="./neck-refinement.js?v=f2afff58b899499d"></script>
 </body>
 </html>

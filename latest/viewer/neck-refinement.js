@@ -83,6 +83,36 @@ function clear(panel,message = '') {
 }
 function available(descriptor) { return !!descriptor && typeof descriptor.url === 'string' && !!descriptor.url; }
 function autoHoleReview(item = current) { return item?.auto_hole_models?.schema === 'automatic-hole-models-v1' ? item.auto_hole_models : null; }
+function surfacePostprocess(item = current) { return item?.surface_postprocess?.schema === 'surface-postprocess-models-v1' ? item.surface_postprocess : null; }
+function surfaceGeometry(item = current) { return item?.surface_comparison?.schema === 'surface-comparison-result-v1' ? item.surface_comparison : null; }
+function postprocessChangedRanges(item = current) {
+  const post = surfacePostprocess(item);
+  if (!post) return [];
+  const ranges = post.final_changed_face_ranges;
+  if (!Array.isArray(ranges)) throw Error('后处理缺少实际改标范围');
+  let end = 0, count = 0;
+  for (const range of ranges) {
+    if (!Array.isArray(range) || range.length !== 2 || !range.every(Number.isInteger) || range[0] < end || range[1] <= range[0] || range[1] > item.models.before.faces || range[1] > item.models.after.faces) throw Error('后处理改标范围不对应最终模型');
+    end = range[1]; count += range[1]-range[0];
+  }
+  if (count !== post.comparison?.changed_face_count) throw Error('后处理改标范围计数不符');
+  return ranges;
+}
+function estimatedSourceRanges(key,item = current) {
+  const post = surfacePostprocess(item) || surfaceGeometry(item);
+  if (!post) return key === 'after' && autoHoleReview(item) ? autoHoleRanges(item) : [];
+  if (!['before','after'].includes(key)) return [];
+  const ranges = post.estimated_face_ranges?.[key], model = item.models?.[key];
+  if (!Array.isArray(ranges) || !Number.isInteger(model?.faces) || !/^[a-f0-9]{64}$/.test(model.sha256 || '')) throw Error('后处理曲面的来源范围缺失');
+  if (surfaceGeometry(item) && post.model_sha256?.[key] !== model.sha256) throw Error('独立曲面来源范围没有绑定本侧网格');
+  let end = 0;
+  for (const range of ranges) {
+    if (!Array.isArray(range) || range.length !== 2 || !range.every(Number.isInteger) || range[0] < end || range[1] <= range[0] || range[1] > model.faces) throw Error('后处理拟合来源范围无效');
+    end = range[1];
+  }
+  if (surfaceGeometry(item) && ranges.reduce((sum,[a,b]) => sum+b-a,0) !== post.native_hole?.[key]?.counts?.synthetic_faces) throw Error('独立曲面估计面范围与本侧实际数量不符');
+  return ranges;
+}
 function autoHoleBoundaryLabels(item = current) {
   const bundle = autoHoleReview(item);
   if (!bundle || !bundle.result_contract_schema || bundle.result_contract_schema === 'automatic-hole-repair-result-v1') return false;
@@ -172,10 +202,11 @@ function setColor(color,value) {
   } else color.set(value);
 }
 function addModel(panel,model,key,mode,removed = false) {
-  const auto = autoHoleReview(), ranges = auto && key === 'after' && !removed ? autoHoleRanges() : [];
-  if (auto && !removed) {
+  const auto = autoHoleReview(), post = surfacePostprocess(), comparison = surfaceGeometry(), ranges = !removed ? estimatedSourceRanges(key) : [];
+  const changed = post && !removed && ['before','after'].includes(key) ? postprocessChangedRanges() : [];
+  if ((auto || post || comparison) && !removed) {
     if (model.nv !== model.nf * 3 || model.faces.some((value,index) => value !== index)) throw Error('自动补面显示必须使用真实逐面标签');
-    if (!autoHoleBoundaryLabels()) for (const [start,end] of ranges) for (let index = start * 3; index < end * 3; index++) if (model.labels[index] !== 0) throw Error('旧版自动补面未知标签应为 0');
+    if (auto && !autoHoleBoundaryLabels()) for (const [start,end] of ranges) for (let index = start * 3; index < end * 3; index++) if (model.labels[index] !== 0) throw Error('旧版自动补面未知标签应为 0');
   }
   if (!removed && mode !== 'color') {
     for (const label of model.labels) if (!Number.isInteger(label) || label < 0 || label > 10) throw Error('最终模型的牙面标签超出 0–10 范围');
@@ -183,7 +214,8 @@ function addModel(panel,model,key,mode,removed = false) {
   const colors = new Float32Array(model.nv * 3), color = new THREE.Color();
   for (let i = 0; i < model.nv; i++) {
     const label = model.labels[i];
-    if (auto && $('auto-hole-highlight')?.checked && ranges.some(([start,end]) => Math.floor(i / 3) >= start && Math.floor(i / 3) < end)) color.set('#ff981f');
+    if (post && $('postprocess-highlight')?.checked && changed.some(([start,end]) => Math.floor(i / 3) >= start && Math.floor(i / 3) < end)) color.set('#f000ff');
+    else if ((auto || post || comparison) && $('auto-hole-highlight')?.checked && ranges.some(([start,end]) => Math.floor(i / 3) >= start && Math.floor(i / 3) < end)) color.set('#ff981f');
     else if (removed) color.set('#ffa326');
     else if (mode === 'color') color.setRGB(model.rgb[i * 3],model.rgb[i * 3 + 1],model.rgb[i * 3 + 2]).convertSRGBToLinear();
     else if (mode === 'reconstruction') color.set(reconstructionSession?.patchVertices?.[i] ? '#ff981f' : '#b2becb');
@@ -254,6 +286,8 @@ function makeLegend() {
     if (mode === 'segmentation' && (!autoHoleBoundaryLabels() || autoHoleReview().report?.label_assignment?.unresolved_faces > 0)) items.push([autoHoleBoundaryLabels() ? '未知 / 缺少有效分区边界' : '估计补面 / 未知标签 0',paletteColor(0)]);
     if ($('auto-hole-highlight')?.checked && autoHoleRanges().length) items.push(['自动估计补面来源（非组织标签）','#ff981f']);
   }
+  if ((surfacePostprocess() || surfaceGeometry()) && $('auto-hole-highlight')?.checked && ['before','after'].some(key => estimatedSourceRanges(key).length)) items.push(['估计补面来源（非组织标签）','#ff981f']);
+  if (surfacePostprocess() && $('postprocess-highlight')?.checked && postprocessChangedRanges().length) items.push(['本轮改标区域（无几何删除）','#f000ff']);
   for (const [name,color] of items) {
     const item = document.createElement('span'), swatch = document.createElement('i'), resolved = new THREE.Color();
     swatch.className = 'swatch'; setColor(resolved,color); swatch.style.backgroundColor = `#${resolved.getHexString()}`;
@@ -263,14 +297,15 @@ function makeLegend() {
 async function render(doFit = false) {
   const ticket = ++serial, selected = current, mode = $('display-mode').value;
   const auto = autoHoleReview(selected);
+  const post = surfacePostprocess(selected), comparison = surfaceGeometry(selected), completeComparison = auto || post || comparison;
   const colorMode = mode === 'color', trial = mode === 'candidate', diagnostic = mode === 'repair', accepted = selected.platform_report?.candidate_accepted;
   updateRemovedControl();
   const whole = diagnostic && $('reconstruction').checked && reconstructionSession?.ready && reconstructionSession.item === selected;
   const overlayKey = removedKey(), leftKey = whole ? 'after' : colorMode ? 'input' : 'before', rightKey = whole ? 'reconstruction' : trial ? 'candidate' : colorMode ? 'refined' : 'after';
   const descriptor = key => key === 'reconstruction' ? selected.hole_reconstruction?.model : selected.models?.[key];
-  $('platform-policy').hidden = !!auto || diagnostic;
-  $('repair-diagnostic').hidden = !!auto || !diagnostic;
-  $('reconstruction-controls').hidden = !!auto || !diagnostic;
+  $('platform-policy').hidden = !!completeComparison || diagnostic;
+  $('repair-diagnostic').hidden = !!completeComparison || !diagnostic;
+  $('reconstruction-controls').hidden = !!completeComparison || !diagnostic;
   if (diagnostic) $('hole-details').open = true;
   $('platform-policy').dataset.state = trial && !available(selected.models?.candidate) ? 'missing' : accepted === true ? 'accepted' : accepted === false ? 'rejected' : 'unavailable';
   $('platform-policy').style.borderLeftColor = accepted === false ? '#ffbf69' : '';
@@ -281,6 +316,14 @@ async function render(doFit = false) {
   if (auto) {
     $('left-label').textContent = '补面前 · 原始分割'; $('right-label').textContent = '自动补面后 · 完整模型';
     $('mode-note').textContent = '左侧是原始分割，右侧默认加载自动补面后的完整模型。保留面标签不变。' + autoHoleLabelNote();
+  }
+  if (post) {
+    $('left-label').textContent = versionName('before'); $('right-label').textContent = versionName('after');
+    $('mode-note').textContent = '两侧均为实际最终完整模型，包含已分区的补面。肩台后处理只调整标签；四色表示四个肩台子区，橙色开关单独标记拟合来源。';
+  }
+  if (comparison) {
+    $('left-label').textContent = versionName('before'); $('right-label').textContent = versionName('after');
+    $('mode-note').textContent = '此版重新处理了颈缘，请直接比较两侧轮廓。两侧分别加载实际完整模型；四色肩台按各自标签显示，橙色开关只标记各自补面来源。';
   }
   const pair = [[left,leftKey],[right,rightKey]];
   for (const [panel,key] of pair) clear(panel,available(descriptor(key)) ? '模型加载中…' : `本例无${modelName(key)}产物`);
@@ -304,8 +347,8 @@ async function render(doFit = false) {
     } catch (error) { errors.push(error); }
   }
   if (ticket !== serial) return;
-  if (!auto) { drawHoleOverlays(); drawHoleBoundaries(); updateHoleControls(); }
-  if (doFit) fit(auto && query.get('focus') === 'repair' ? auto.patch_bounds : null); else for (const panel of panels) draw(panel);
+  if (!completeComparison) { drawHoleOverlays(); drawHoleBoundaries(); updateHoleControls(); }
+  if (doFit) fit(query.get('focus') === 'repair' ? auto?.patch_bounds || post?.patch_bounds?.after || comparison?.patch_bounds?.after : null); else for (const panel of panels) draw(panel);
   if (errors.length) showError(errors.map(error => error.message || String(error)).join('；'));
   $('status').textContent = `${loaded === 2 && !errors.length ? '已加载' : '部分结果不可用'} · ${modeNames[mode]} · ${loaded}/2 幅模型`;
 }
@@ -711,13 +754,54 @@ function updateComparisons() {
   statusRow($('final-comparison'),'final_labels_modified','最终标签',noMapping ? null : comparison.labels_modified,'modified',!complete ? '不可用（最终产物不齐全）' : noMapping ? '不可直接比较（网格表示或索引不同）' : '不可用（未提供）');
 }
 function updateAutoHoleControls() {
-  const bundle = autoHoleReview(), section = $('auto-hole-controls');
-  if (!section) { if (bundle) throw Error('自动补面查看器页面缺少控件'); return; }
-  section.hidden = !bundle;
-  for (const id of ['change-summary','platform-report-details','removed-note']) $(id).hidden = !!bundle;
-  $('removed').closest('label').hidden = !!bundle;
-  if (!bundle) { $('hole-details').hidden = false; return; }
+  const bundle = autoHoleReview(), post = surfacePostprocess(), comparison = surfaceGeometry(), active = bundle || post || comparison, section = $('auto-hole-controls');
+  if (!section) { if (active) throw Error('完整曲面查看器页面缺少控件'); return; }
+  section.hidden = !active;
+  if ($('postprocess-highlight-controls')) $('postprocess-highlight-controls').hidden = !(post || comparison);
+  for (const id of ['change-summary','platform-report-details','removed-note']) $(id).hidden = !!active;
+  $('removed').closest('label').hidden = !!active;
+  if (!active) { $('hole-details').hidden = false; return; }
   $('attempt-details').hidden = true; $('hole-details').hidden = true;
+  if (comparison) {
+    if (comparison.status !== 'completed' || comparison.comparison?.cross_version_face_highlight !== false || !/^[a-f0-9]{64}$/.test(comparison.shared_step4_mesh_sha256 || '')) throw Error('独立曲面对照缺少共享扫描来源核验');
+    const count = ['before','after'].reduce((sum,key) => sum + estimatedSourceRanges(key).reduce((n,[a,b]) => n+b-a,0),0);
+    $('auto-hole-highlight').disabled = !count;
+    if (!count) $('auto-hole-highlight').checked = false;
+    $('auto-hole-focus').disabled = !validBounds(comparison.patch_bounds?.after);
+    if ($('postprocess-highlight')) { $('postprocess-highlight').disabled = true; $('postprocess-highlight').checked = false; }
+    $('auto-hole-status').dataset.state = 'completed';
+    $('auto-hole-status').textContent = '此版重新处理了颈缘，请直接比较两侧轮廓';
+    if ($('auto-hole-label-note')) $('auto-hole-label-note').textContent = '两侧面片索引独立，已停用跨版本改标高亮。拟合面按各自实际标签着色，橙色只表示估计来源。';
+    section.querySelector('summary').textContent = '两侧真实曲面与扫描来源';
+    $('auto-hole-report').textContent = JSON.stringify(comparison,null,2);
+    $('auto-hole-downloads').replaceChildren();
+    appendLink($('auto-hole-downloads'),current.downloads?.surface_comparison_json_url,'独立曲面对照与来源契约');
+    appendLink($('auto-hole-downloads'),current.downloads?.replay_result_json_url,'本轮重放结果契约');
+    appendLink($('auto-hole-downloads'),current.downloads?.baseline_result_json_url,'上一版真实结果契约');
+    appendLink($('auto-hole-downloads'),current.downloads?.shared_source_ply_url,'共享 Step4 真实扫描 PLY');
+    for (const role of ['before','after']) for (const [suffix,label] of [['canonical_ply_url','补面前真实曲面 PLY'],['canonical_labels_url','真实曲面标签'],['canonical_source_provenance_npz_url','真实源面重心坐标 NPZ'],['repair_contract_json_url','自动补面契约'],['repair_report_json_url','自动补面记录']]) appendLink($('auto-hole-downloads'),current.downloads?.[role+'_'+suffix],versionName(role)+' '+label);
+    $('auto-hole-registration').hidden = true; $('auto-hole-registration').removeAttribute('href');
+    return;
+  }
+  if (post) {
+    const comparison = post.comparison || {}, count = ['before','after'].reduce((sum,key) => sum + estimatedSourceRanges(key).reduce((n,[a,b]) => n+b-a,0),0);
+    if (comparison.geometry_modified !== false || typeof comparison.labels_modified !== 'boolean' || !Number.isInteger(comparison.changed_face_count) || comparison.changed_face_count < 0) throw Error('缺少实际最终曲面的后处理核验');
+    $('auto-hole-highlight').disabled = count === 0;
+    if (!count) $('auto-hole-highlight').checked = false;
+    $('auto-hole-focus').disabled = !count || !validBounds(post.patch_bounds?.after);
+    const changes = postprocessChangedRanges();
+    if ($('postprocess-highlight')) { $('postprocess-highlight').disabled = !changes.length; if (!changes.length) $('postprocess-highlight').checked = false; }
+    $('auto-hole-status').dataset.state = post.status;
+    $('auto-hole-status').textContent = comparison.labels_modified ? `肩台后处理改变 ${comparison.changed_face_count} 个最终面标签（${Number(comparison.changed_area_mm2).toFixed(3)} mm²），真实曲面和拟合来源保持不变。` : `本例最终标签与${versionName('before')}一致；两侧均显示真实保留结果。`;
+    if ($('auto-hole-label-note')) $('auto-hole-label-note').textContent = '肩台坡度判断与补面来源分别记录；拟合面按实际标签着色，不能因有了牙面标签就当作真实扫描的坡度证据。';
+    $('auto-hole-controls').querySelector('summary').textContent = '肩台后处理与最终变化记录';
+    $('auto-hole-report').textContent = JSON.stringify({final_surface_comparison:comparison,stage_report:post.report},null,2);
+    $('auto-hole-downloads').replaceChildren();
+    for (const [key,label] of [['postprocess_report_json_url','肩台后处理记录 JSON'],['postprocess_contract_json_url','前后最终结果契约'],['postprocess_fields_npz_url','真实 canonical 坡度诊断数组 NPZ'],['postprocess_diagnostic_mesh_ply_url','诊断数组对应真实 canonical 网格 PLY']]) appendLink($('auto-hole-downloads'),current.downloads?.[key],label);
+    $('auto-hole-registration').hidden = true; $('auto-hole-registration').removeAttribute('href');
+    return;
+  }
+  $('auto-hole-controls').querySelector('summary').textContent = '自动补面记录与来源';
   const ranges = autoHoleRanges(), report = bundle.report || {}, count = ranges.reduce((sum,[start,end]) => sum + end - start,0);
   $('auto-hole-highlight').disabled = count === 0;
   if (!count) $('auto-hole-highlight').checked = false;
@@ -742,7 +826,7 @@ function updateMetadata() {
   $('duplicates').textContent = `相同输入扫描：${duplicates.join('、')}。各记录保留各自的处理结果，不计为独立扫描。`;
   const models = current.models || {};
   for (const option of $('display-mode').options) option.disabled = option.value === 'candidate' ? !available(models.candidate) : option.value === 'color' ? !available(models.input) && !available(models.refined) : !available(models.before) && !available(models.after);
-  if (autoHoleReview()) {
+  if (autoHoleReview() || surfacePostprocess() || surfaceGeometry()) {
     for (const option of $('display-mode').options) option.disabled = !['segmentation','grey','shoulder'].includes(option.value);
     if (!['segmentation','grey','shoulder'].includes($('display-mode').value)) $('display-mode').value = 'segmentation';
     $('removed').checked = false; $('reconstruction').checked = false;
@@ -762,6 +846,7 @@ function updateMetadata() {
   }
   appendLink($('downloads'),downloads.platform_report_json_url,'颈缘处理记录 JSON');
   appendLink($('downloads'),downloads.platform_fields_npz_url,'颈缘输入诊断数组 NPZ');
+  if (surfacePostprocess() || surfaceGeometry()) appendLink($('downloads'),downloads.before_source_provenance_npz_url,`${versionName('before')}原面 / 补面来源 NPZ`);
   if (autoHoleReview()) appendLink($('downloads'),downloads.after_preview_ply_url,'自动补面分区颜色预览 PLY');
   for (const [key,label] of [['input','颈缘输入'],['refined','颈缘输出'],['removed','颈缘实际删除片'],['candidate','颈缘试验候选'],['after','最终产物']]) {
     if (available(models[key])) appendLink($('downloads'),downloads[key+'_source_provenance_npz_url'],label+'源面追溯 NPZ');
@@ -785,6 +870,7 @@ function choose(id) {
     if ($('display-mode').value === 'candidate') $('display-mode').value = 'segmentation';
     $('removed').checked = false;
     if ($('auto-hole-highlight')) $('auto-hole-highlight').checked = false;
+    if ($('postprocess-highlight')) $('postprocess-highlight').checked = false;
   }
   current = selected;
   if (filter !== 'all' && String(current.prep_fdi) !== filter) filter = 'all';
@@ -816,6 +902,14 @@ async function start() {
         link.textContent = '返回原始整批结果'; link.style.marginLeft = '14px'; header.append(link);
       }
     }
+  }
+  if (data.review_kind === 'surface_postprocess') {
+    if (!Array.isArray(data.cases) || data.cases.some(item => !surfacePostprocess(item))) throw Error('后处理清单缺少逐例实际最终结果');
+    $('comparison-subtitle').textContent = `${versionName('before')} → ${versionName('after')} · 四色肩台与拟合来源独立保留`;
+  }
+  if (data.review_kind === 'surface_comparison') {
+    if (!Array.isArray(data.cases) || data.cases.some(item => !surfaceGeometry(item))) throw Error('独立曲面对照缺少逐例实际结果');
+    $('comparison-subtitle').textContent = `${versionName('before')} → ${versionName('after')} · 真实轮廓、四色肩台与各自补面来源`;
   }
   if (typeof data.review_title === 'string' && data.review_title.trim()) {
     document.title = data.review_title.trim(); $('review-title').textContent = document.title;
@@ -871,8 +965,9 @@ async function start() {
   };
   for (const button of $('views').querySelectorAll('[data-view]')) button.onclick = () => { view = button.dataset.view; fit(); updateUrl(); };
   $('fit').onclick = fit;
-  if ($('auto-hole-highlight')) $('auto-hole-highlight').onchange = () => render(false).catch(showError);
-  if ($('auto-hole-focus')) $('auto-hole-focus').onclick = () => { const bundle = autoHoleReview(); if (bundle && validBounds(bundle.patch_bounds)) fit(bundle.patch_bounds); };
+  if ($('auto-hole-highlight')) $('auto-hole-highlight').onchange = () => { if ($('auto-hole-highlight').checked && $('postprocess-highlight')) $('postprocess-highlight').checked = false; render(false).catch(showError); };
+  if ($('postprocess-highlight')) $('postprocess-highlight').onchange = () => { if ($('postprocess-highlight').checked) $('auto-hole-highlight').checked = false; render(false).catch(showError); };
+  if ($('auto-hole-focus')) $('auto-hole-focus').onclick = () => { const bounds = autoHoleReview()?.patch_bounds || surfacePostprocess()?.patch_bounds?.after || surfaceGeometry()?.patch_bounds?.after; if (validBounds(bounds)) fit(bounds); };
   $('hole-undo').onclick = () => { if (!holeSession?.undo.length) return; holeSession.selected = new Set(holeSession.undo.pop()); updateHoleControls(); render(false).catch(showError); };
   $('hole-clear').onclick = () => { if (!holeSession?.selected.size) return; holeSession.undo.push([...holeSession.selected]); holeSession.selected.clear(); updateHoleControls(); render(false).catch(showError); };
   $('hole-download').onclick = downloadSelectedRepair;
